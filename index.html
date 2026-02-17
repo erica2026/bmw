@@ -704,13 +704,18 @@
         }
         // Step navigation
         function nextStep(step) {
+            // Going backwards - just show the step, no validation
+            if (step < 1 || step < (getCurrentStep())) {
+                showStep(step);
+                return;
+            }
+            
             const currentStep = step - 1;
             
             // Step 2 validation - date & time
             if (currentStep === 2) {
                 const dateVal = document.getElementById('bookingDate').value;
                 const timeVal = document.getElementById('selectedTime').value;
-                console.log('Step 2 validation:', dateVal, timeVal);
                 
                 if (!dateVal) {
                     alert('Please pick a date!');
@@ -741,6 +746,19 @@
                 }
             }
             
+            showStep(step);
+        }
+        
+        function getCurrentStep() {
+            for (let i = 1; i <= 4; i++) {
+                if (!document.getElementById('step' + i).classList.contains('hidden')) {
+                    return i;
+                }
+            }
+            return 1;
+        }
+        
+        function showStep(step) {
             // Hide all steps
             document.querySelectorAll('.form-step').forEach(el => el.classList.add('hidden'));
             // Show target step
@@ -820,33 +838,44 @@
             const container = document.getElementById('timeSlots');
             const bookedTimes = date ? getBookedTimes(date) : [];
             
-            // Find which hour slots are booked (for determining if :30 shows)
-            const bookedHourSlots = new Set();
+            // Find which hour slots are booked OR affected by duration (for determining if :30 shows)
+            const affectedHourSlots = new Set();
             bookedTimes.forEach(booking => {
                 const startMins = timeToMinutes(booking.time);
-                const hourSlot = Math.floor(startMins / 60) * 60; // Round down to hour
-                bookedHourSlots.add(hourSlot);
+                const duration = getServiceDuration(booking.service) || 60;
+                const endMins = startMins + duration + 30; // +30 for buffer
+                
+                // Mark all hours from start to end as affected
+                let current = Math.floor(startMins / 60) * 60;
+                while (current < endMins) {
+                    affectedHourSlots.add(current);
+                    current += 60;
+                }
             });
             
             // Block times: booked slots + 30 min buffer after each
             const blockedTimes = new Set();
             bookedTimes.forEach(booking => {
                 const startMins = timeToMinutes(booking.time);
-                const endMins = startMins + (booking.duration || 30);
-                // Block the booked slot and 30 min buffer after
-                for (let m = startMins; m < endMins + 30; m += 30) {
-                    blockedTimes.add(m);
+                const duration = getServiceDuration(booking.service) || 60;
+                const endMins = startMins + duration + 30; // +30 for buffer
+                
+                // Block from start to end (rounded to 30-min intervals)
+                let current = startMins;
+                while (current < endMins) {
+                    blockedTimes.add(current);
+                    current += 30;
                 }
             });
             
-            // Generate slots: start with :00, add :30 only if hour is booked
+            // Generate slots: start with :00, add :30 only if that hour is affected
             const slots = [];
             for (let mins = 7 * 60; mins <= 19 * 60; mins += 60) {
                 // Always add the hour slot
                 slots.push({ mins, type: 'hour' });
                 
-                // Add :30 only if the hour slot before it is booked
-                if (bookedHourSlots.has(mins)) {
+                // Add :30 only if this hour is affected by a booking
+                if (affectedHourSlots.has(mins)) {
                     slots.push({ mins: mins + 30, type: 'half' });
                 }
             }
@@ -955,7 +984,7 @@
             
             // Clear time selection
             document.querySelectorAll('.time-slot').forEach(slot => slot.classList.remove('selected'));
-            selectedTime = null;
+            window.selectedTime = null;
             
             // Regenerate time slots
             generateTimeSlots();
