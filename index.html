@@ -705,19 +705,24 @@
         // Step navigation
         function nextStep(step) {
             const currentStep = step - 1;
-            const stepEl = document.getElementById('step' + currentStep);
             
             // Step 2 validation - date & time
             if (currentStep === 2) {
                 const dateVal = document.getElementById('bookingDate').value;
                 const timeVal = document.getElementById('selectedTime').value;
+                console.log('Step 2 validation:', dateVal, timeVal);
                 
-                if (!dateVal || !timeVal) {
-                    alert('Please pick a date and time!');
+                if (!dateVal) {
+                    alert('Please pick a date!');
+                    return;
+                }
+                if (!timeVal) {
+                    alert('Please pick a time!');
                     return;
                 }
             } else {
                 // Standard validation - check all required fields in current step
+                const stepEl = document.getElementById('step' + currentStep);
                 const requiredInputs = stepEl.querySelectorAll('[required]');
                 let valid = true;
                 
@@ -855,8 +860,8 @@
                 return `<div class="time-slot ${unavailableClass}" ${onclick}>${timeStr}</div>`;
             }).join('');
             
-            // Reset selection
-            selectedTime = null;
+            // Reset selection (use global variable)
+            window.selectedTime = null;
             document.getElementById('selectedTime').value = '';
         }
         
@@ -866,14 +871,15 @@
         generateTimeSlots();
         
         // Time selection
-        let selectedTime = null;
+        window.selectedTime = null;
         function selectTime(el, time) {
             if (el.classList.contains('unavailable')) return;
             
             document.querySelectorAll('.time-slot').forEach(slot => slot.classList.remove('selected'));
             el.classList.add('selected');
-            selectedTime = time;
+            window.selectedTime = time;
             document.getElementById('selectedTime').value = time;
+            console.log('Time selected:', time, document.getElementById('selectedTime').value);
         }
         
         // Set min date to today
